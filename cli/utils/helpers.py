@@ -19,6 +19,15 @@ def validate_target(target: str) -> Dict[str, Union[str, bool]]:
     Returns:
         Dict with validation results and target type
     """
+    if not target:
+        return {
+            'valid': False,
+            'type': 'unknown',
+            'target': '',
+            'normalized': '',
+            'warnings': ['Target cannot be empty']
+        }
+    
     target = target.strip()
     
     result = {
