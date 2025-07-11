@@ -85,8 +85,9 @@ class BbotWrapper:
             '-t', target,
             '-o', str(self.output_dir),
             '-n', scan_name,
-            '--output-modules', 'json,subdomains',  # FIXED
+            '--output-modules', 'json,subdomains', 
             '-f', 'subdomain-enum',
+            '-y',  # Auto-confirm
 ]
         
         if self.verbose:

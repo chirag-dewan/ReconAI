@@ -1,268 +1,339 @@
-# ReconAI
+# 🤖 ReconGPT
 
-🔍 **Automated reconnaissance with AI-powered analysis and prioritization**
+> *An AI-powered reconnaissance assistant that transforms raw OSINT into actionable intelligence using GPT-4 and custom automation pipelines.*
 
-ReconAI combines traditional security reconnaissance tools with AI analysis to provide intelligent insights, risk prioritization, and actionable recommendations for security researchers and penetration testers.
+## 🎯 What is ReconGPT?
 
-## ✨ Features
+ReconGPT is a modular offensive reconnaissance assistant that automates OSINT collection using **Bbot** and enhances it with **AI-powered analysis** using GPT-4. It doesn't just collect data—it provides **threat insights, prioritization, and actionable intelligence**.
 
-- **🔧 Multi-tool Integration**: Supports Bbot, Spiderfoot, and custom Google Dorks
-- **🧠 AI-Powered Analysis**: Uses GPT-4 to summarize findings and prioritize threats  
-- **📊 Multiple Output Formats**: Text, JSON, HTML, and CSV reports
-- **⚙️ Flexible Configuration**: YAML config files with environment variable overrides
-- **🖥️ Professional CLI**: Rich formatting, progress tracking, and comprehensive logging
-- **📈 Extensible Architecture**: Easy to add new tools and analysis modules
+### 🔥 Key Differentiators
+- **AI-Enhanced Analysis**: GPT-4 analyzes findings and highlights high-value targets
+- **Custom Google Dork Generation**: AI creates tailored search queries for your target
+- **Target Prioritization**: Automatic risk scoring and asset categorization
+- **Actionable Intelligence**: Get next steps, not just data dumps
+- **Multiple Recon Styles**: Stealth, aggressive, or phishing-focused scanning
+
+---
 
 ## 🚀 Quick Start
 
 ### Installation
-
 ```bash
-git clone https://github.com/chirag-dewan/recon-ai.git
-cd recon-ai
-chmod +x install.sh
-./install.sh
-```
-
-Or manual installation:
-```bash
+git clone https://github.com/chirag-dewan/recongpt.git
+cd recongpt
 pip install -r requirements.txt
 pip install bbot
-cp .env.example .env
-# Edit .env and add your OpenAI API key
 ```
 
-### Verify Installation
+### Configuration
 ```bash
-python main.py --health
+cp .env.example .env
+# Edit .env and add your OpenAI API key
+echo "OPENAI_API_KEY=sk-your-key-here" >> .env
 ```
 
 ### Basic Usage
-
 ```bash
-# Quick domain scan
-python main.py -t example.com
+# AI-powered domain reconnaissance
+python main.py -t example.com --analyze
 
-# Full scan with AI analysis  
-python main.py -t example.com --analyze --format all
+# Generate custom Google Dorks
+python main.py -t example.com --dorks
 
-# Scan IP range with verbose output
-python main.py -t 192.168.1.0/24 --tool bbot --analyze -v
-
-# Scan with custom output format
-python main.py -t target.com --format html --analyze
+# Full intelligence gathering with prioritization
+python main.py -t example.com --style aggressive --analyze --format html
 ```
 
-## 📋 Command Reference
+---
 
-### Core Commands
+## 🧠 Core Features
+
+### 1. **AI-Augmented Recon Pipeline**
+- Integrates with [Bbot](https://github.com/blacklanternsecurity/bbot) for comprehensive OSINT
+- GPT-4 analyzes findings and identifies:
+  - 🎯 Vulnerable subdomains
+  - 🔑 Leaked credentials
+  - 💎 High-value assets
+  - ⚠️ Misconfigurations
+  - 🚨 Unusual behaviors
+
+### 2. **Custom Google Dork Generator**
 ```bash
-# Run reconnaissance
-python main.py -t <target> [options]
+python main.py -t target.com --dorks
+```
+AI generates targeted search queries for:
+- Admin portals and login pages
+- Exposed log files and backups
+- Sensitive data indexes
+- Technology stack indicators
+- Configuration files
 
-# Health check
-python main.py --health
+### 3. **Target Prioritization Engine**
+GPT-4 evaluates findings and assigns:
+- **Risk Scores** (0-100)
+- **Confidence Levels**
+- **Attack Surface Analysis**
+- **Prioritized Target Lists**
 
-# Configuration management  
-python main.py --config              # Show config status
-python main.py --create-config       # Create example config
+### 4. **Recon Style Modes**
+```bash
+--style stealth       # Passive-only reconnaissance
+--style aggressive    # Deep scanning with all modules
+--style phishing      # Email and social media focused
+--style quick         # Fast overview scan
 ```
 
-### Options
-- `-t, --target`: Target to scan (domain, IP, CIDR, or organization)
-- `--tool`: Tool to use (`bbot`, `spiderfoot`, `google-dorks`, `all`)
-- `--analyze`: Enable AI analysis of results
-- `--format`: Output format (`text`, `json`, `html`, `csv`, `all`)  
-- `--output-dir`: Directory for results (default: `output`)
-- `-v, --verbose`: Enable verbose logging
+### 5. **Intelligence Reports**
+Professional reports with:
+- Executive summary
+- High-value target identification
+- Attack vector analysis
+- Recommended next steps
+- Technical findings breakdown
 
-## 🎯 Target Types
+---
 
-ReconAI automatically detects and handles different target types:
+## 💻 Command Examples
 
-| Type | Example | Description |
-|------|---------|-------------|
-| **Domain** | `example.com` | Domain name reconnaissance |
-| **IP Address** | `192.168.1.1` | Single IP address scanning |
-| **CIDR Range** | `192.168.1.0/24` | Network range scanning |
-| **URL** | `https://example.com` | Extract domain from URL |
-| **Organization** | `"Acme Corp"` | Organization-based OSINT |
+### Basic Reconnaissance
+```bash
+# Standard scan with AI analysis
+python main.py -t example.com --analyze
+
+# Quick scan for initial assessment
+python main.py -t example.com --style quick --format text
+```
+
+### Advanced Intelligence Gathering
+```bash
+# Comprehensive aggressive scan
+python main.py -t target.com --style aggressive --analyze --dorks --format all
+
+# Phishing campaign preparation
+python main.py -t company.com --style phishing --analyze --format html
+
+# Stealth reconnaissance
+python main.py -t sensitive-target.com --style stealth --analyze
+```
+
+### Google Dork Generation
+```bash
+# Generate custom dorks for target
+python main.py -t example.com --dorks-only
+
+# Combine recon with dork generation
+python main.py -t example.com --analyze --dorks --format html
+```
+
+### Multi-Target Operations
+```bash
+# Scan multiple targets
+python main.py -t target1.com,target2.com,target3.com --analyze
+
+# Scan from file
+python main.py --targets-file targets.txt --style aggressive
+```
+
+---
 
 ## 📊 Output Formats
 
-### Text Report
-```bash
-python main.py -t example.com --format text
+| Format | Description | Use Case |
+|--------|-------------|----------|
+| `text` | Clean console output | Quick analysis |
+| `json` | Structured data | Automation/parsing |
+| `html` | Professional web report | Presentations |
+| `markdown` | Documentation format | Documentation |
+| `pdf` | Executive summary | Client deliverables |
+
+---
+
+## 🎨 Sample Output
+
+### AI-Generated Target Prioritization
 ```
-Clean, readable console output with structured sections.
+🔴 HIGH PRIORITY TARGETS:
+- admin.example.com (exposed admin panel, weak auth)
+- api.example.com (sensitive endpoints, no rate limiting)
+- backup.example.com (database backups accessible)
 
-### JSON Export  
-```bash
-python main.py -t example.com --format json
+🟡 MEDIUM PRIORITY:
+- dev.example.com (development environment, info disclosure)
+- staging.example.com (staging data, potential secrets)
+
+🟢 LOW PRIORITY:
+- www.example.com (standard website, limited attack surface)
 ```
-Machine-readable format for integration with other tools.
 
-### HTML Report
-```bash
-python main.py -t example.com --format html
+### Custom Generated Dorks
 ```
-Professional web-based report with styling and tables.
+🎯 ADMIN PORTALS:
+site:example.com inurl:admin
+site:example.com inurl:login "admin panel"
 
-### CSV Summary
-```bash
-python main.py -t example.com --format csv  
+🔍 SENSITIVE FILES:
+site:example.com filetype:log
+site:example.com "index of" confidential
 ```
-Spreadsheet-compatible format for data analysis.
 
-### All Formats
+---
+
+## 🔧 Configuration
+
+### Environment Variables
 ```bash
-python main.py -t example.com --format all
-```
-Generate all format types simultaneously.
-
-## ⚙️ Configuration
-
-### Environment Variables (.env)
-```bash
-# Required for AI analysis
-OPENAI_API_KEY=your_openai_api_key_here
-
-# Optional settings
+OPENAI_API_KEY=sk-your-openai-key
+OPENAI_MODEL=gpt-4  # or gpt-3.5-turbo for cost savings
+BBOT_CONFIG_PATH=/path/to/bbot/config
 LOG_LEVEL=INFO
-OUTPUT_DIR=output
-MAX_SCAN_TIMEOUT=300
 ```
 
-### Configuration File (config/config.yaml)
+### Advanced Configuration (`config.yaml`)
 ```yaml
-general:
-  output_dir: output
-  log_level: INFO
-  max_scan_timeout: 300
-
 ai:
   model: gpt-4
   temperature: 0.3
   max_tokens: 2000
 
-tools:
-  bbot:
-    enabled: true
-    timeout: 300
-    default_flags: ['subdomain-enum']
+recon:
+  default_style: aggressive
+  timeout: 600
   
-  spiderfoot:
-    enabled: false
-    timeout: 600
+dorks:
+  categories:
+    - admin_portals
+    - sensitive_files
+    - tech_stack
+    - backups
+
+output:
+  auto_open_html: true
+  save_dorks: true
 ```
 
-## 🛠️ Tool Integration
+---
 
-### Bbot (Default)
-- Comprehensive subdomain enumeration
-- Technology detection  
-- Port scanning
-- Web crawling
-
-### Spiderfoot (Coming Soon)
-- OSINT automation
-- Data correlation
-- Threat intelligence
-
-### Google Dorks (Coming Soon)  
-- Custom search queries
-- Information disclosure detection
-- Sensitive file discovery
-
-## 🧠 AI Analysis
-
-When `--analyze` is enabled, ReconAI uses GPT-4 to:
-
-- **Summarize** key findings in plain English
-- **Prioritize** findings by risk level (Critical/High/Medium/Low)
-- **Identify** potential attack vectors and security concerns  
-- **Provide** actionable recommendations for both red and blue teams
-- **Highlight** unusual or particularly interesting discoveries
-
-## 📁 Project Structure
+## 🏗️ Architecture
 
 ```
-recon-ai/
-├── main.py                 # Main CLI entry point
-├── cli/                    # Core application modules
-│   ├── core/              # Core orchestration and config
-│   ├── tools/             # Tool wrappers (Bbot, etc.)
-│   ├── ai/                # AI analysis modules  
-│   └── utils/             # Utility functions
-├── config/                # Configuration files
-├── output/                # Results and reports
-├── logs/                  # Application logs
-└── docs/                  # Documentation
+ReconGPT/
+├── main.py                    # CLI entry point
+├── core/
+│   ├── orchestrator.py        # Main workflow coordination
+│   ├── config.py              # Configuration management
+│   └── styles.py              # Recon style definitions
+├── tools/
+│   ├── bbot_wrapper.py        # Enhanced Bbot integration
+│   └── dork_generator.py      # AI-powered dork creation
+├── ai/
+│   ├── analyzer.py            # GPT-4 analysis engine
+│   ├── prioritizer.py         # Target prioritization
+│   └── prompts.py             # AI prompt templates
+├── reporting/
+│   ├── formatter.py           # Multi-format output
+│   └── templates/             # Report templates
+└── utils/
+    ├── helpers.py             # Utility functions
+    └── validators.py          # Input validation
 ```
 
-## 🔧 Development
+---
 
-### Running Tests
-```bash
-python test_installation.py
-```
+## 🎯 Use Cases
 
-### Adding New Tools
-1. Create wrapper in `cli/tools/`
-2. Implement standard interface
-3. Update orchestrator configuration
-4. Add tool-specific parsers
+### 🔴 Red Team Operations
+- Pre-engagement reconnaissance
+- Attack surface mapping
+- Target prioritization
+- Intelligence gathering
 
-### Code Style
-```bash
-black .
-flake8
-```
+### 🛡️ Blue Team Defense
+- Asset discovery and inventory
+- Security posture assessment
+- Threat landscape analysis
+- Vulnerability identification
 
-## 📝 Examples
+### 🕵️ OSINT Research
+- Corporate intelligence
+- Digital footprint analysis
+- Supply chain reconnaissance
+- Competitive analysis
 
-### Basic Domain Reconnaissance
-```bash
-python main.py -t example.com --analyze
-```
+### 📱 Social Engineering
+- Phishing campaign preparation
+- Employee information gathering
+- Technology stack identification
+- Communication platform discovery
 
-### Multi-target CIDR Scan
-```bash  
-python main.py -t 10.0.0.0/24 --tool bbot --format html -v
-```
+---
 
-### Complete Assessment with All Tools
-```bash
-python main.py -t target.com --tool all --analyze --format all
-```
+## 🔮 Roadmap
 
-### Organization OSINT
-```bash
-python main.py -t "Acme Corporation" --tool spiderfoot --analyze
-```
+### Phase 1: Core Intelligence (Current)
+- [x] AI-powered analysis
+- [x] Custom dork generation
+- [x] Target prioritization
+- [x] Multiple output formats
+
+### Phase 2: Advanced Features
+- [ ] LangChain RAG integration
+- [ ] Memory and learning capabilities
+- [ ] Streamlit web interface
+- [ ] Automated task planning
+
+### Phase 3: Enterprise Features
+- [ ] Team collaboration
+- [ ] Campaign management
+- [ ] Threat intelligence feeds
+- [ ] API integrations (Shodan, Censys)
+
+### Phase 4: AI Evolution
+- [ ] GPT Agent-style autonomous operation
+- [ ] Threat heatmap generation
+- [ ] CVE correlation and analysis
+- [ ] Predictive threat modeling
+
+---
+
+## 🛡️ Ethical Use
+
+ReconGPT is designed for **authorized security testing only**. Users must:
+- Obtain proper authorization before scanning
+- Comply with all applicable laws and regulations
+- Respect target systems and rate limits
+- Use findings responsibly
+
+---
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes and add tests
-4. Commit your changes (`git commit -m 'Add amazing feature'`)  
-5. Push to the branch (`git push origin feature/amazing-feature`)
-6. Open a Pull Request
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+### Development Setup
+```bash
+git clone https://github.com/yourusername/recongpt.git
+cd recongpt
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements-dev.txt
+```
+
+---
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## ⚠️ Disclaimer
-
-This tool is intended for authorized security testing only. Users are responsible for complying with all applicable laws and regulations. Always obtain proper authorization before testing systems you do not own.
-
-## 🆘 Support
-
-- 📖 **Documentation**: Check the `/docs` folder for detailed guides
-- 🐛 **Issues**: Report bugs via GitHub Issues  
-- 💬 **Discussions**: Use GitHub Discussions for questions
-- 🔧 **Health Check**: Run `python main.py --health` for diagnostics
+MIT License - see [LICENSE](LICENSE) for details.
 
 ---
+
+## 🙏 Acknowledgments
+
+- [Bbot](https://github.com/blacklanternsecurity/bbot) by Black Lantern Security
+- [OpenAI](https://openai.com/) for GPT-4 API
+- The OSINT and security research community
+
+---
+
+**Made with ❤️ for the security community**
+
+*Transform your reconnaissance from data collection to intelligence generation.*

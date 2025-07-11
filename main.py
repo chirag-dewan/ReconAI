@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-ReconAI - Automated Reconnaissance with AI Analysis
-A tool for running security reconnaissance and getting AI-powered insights
+ReconGPT - AI-Powered Reconnaissance Assistant
 """
 
 import argparse
@@ -14,7 +13,7 @@ def setup_directories():
     dirs = ['output', 'config', 'logs']
     for dir_name in dirs:
         Path(dir_name).mkdir(exist_ok=True)
-    print("[+] Project directories initialized")
+    print("[+] ReconGPT directories initialized")
 
 def main():
     # Import utilities for banner and validation
@@ -25,53 +24,53 @@ def main():
         banner_available = False
     
     parser = argparse.ArgumentParser(
-        description='ReconAI - Automated Reconnaissance with AI Analysis',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  %(prog)s -t example.com --tool bbot
-  %(prog)s -t 192.168.1.0/24 --tool spiderfoot
-  %(prog)s -t "Acme Corp" --tool all --analyze
-        """
+        description='ReconGPT - AI-Powered Reconnaissance Assistant',
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    
+    # Simple target argument (no mutually exclusive group)
+    parser.add_argument(
+        '-t', '--target',
+        help='Target to scan (domain, IP, CIDR, or organization name)'
     )
     
     parser.add_argument(
-        # Make target optional for config commands
-        '-t', '--target',
-        required=not any(arg in sys.argv for arg in ['--config', '--create-config', '--health', '--version', '--help']),
-        help='Target to scan (domain, IP, CIDR, or organization name)'
+        '--style',
+        choices=['stealth', 'aggressive', 'phishing', 'quick'],
+        default='aggressive',
+        help='Reconnaissance style (default: aggressive)'
     )
     
     parser.add_argument(
         '--tool',
         choices=['bbot', 'spiderfoot', 'google-dorks', 'all'],
         default='bbot',
-        help='Reconnaissance tool to use (default: bbot)'
+        help='Primary reconnaissance tool (default: bbot)'
     )
     
     parser.add_argument(
         '--analyze',
         action='store_true',
-        help='Enable AI analysis of results'
+        help='Enable AI-powered analysis and prioritization'
+    )
+    
+    parser.add_argument(
+        '--dorks',
+        action='store_true',
+        help='Generate custom Google Dorks for target'
+    )
+    
+    parser.add_argument(
+        '--format',
+        choices=['text', 'json', 'html', 'markdown', 'all'],
+        default='text',
+        help='Output format for results (default: text)'
     )
     
     parser.add_argument(
         '--output-dir',
         default='output',
         help='Directory to store results (default: output)'
-    )
-    
-    parser.add_argument(
-        '--format',
-        choices=['text', 'json', 'html', 'csv', 'all'],
-        default='text',
-        help='Output format for results (default: text)'
-    )
-    
-    parser.add_argument(
-        '--verbose', '-v',
-        action='store_true',
-        help='Enable verbose output'
     )
     
     parser.add_argument(
@@ -83,74 +82,40 @@ Examples:
     parser.add_argument(
         '--health',
         action='store_true',
-        help='Run comprehensive health check of the installation'
+        help='Run comprehensive health check'
     )
     
     parser.add_argument(
-        '--create-config',
+        '--verbose', '-v',
         action='store_true',
-        help='Create example configuration files'
+        help='Enable verbose output'
     )
     
     parser.add_argument(
         '--version',
         action='version',
-        version='ReconAI v0.1.0'
+        version='ReconGPT v1.0.0'
     )
     
     args = parser.parse_args()
     
-    # Print banner if available
+    # Print banner
     if banner_available and not args.verbose:
-        print_banner()
-        print()
+        print("""
+╔══════════════════════════════════════════════════════════╗
+║                        ReconGPT                          ║
+║        AI-Powered Reconnaissance Assistant               ║
+║                                                          ║
+║    🤖 GPT-4 Analysis     🎯 Target Prioritization       ║
+║    🔍 Custom Dorks       📊 Intelligence Reports        ║
+╚══════════════════════════════════════════════════════════╝
+        """)
     
-    # Setup project structure
+    # Setup directories
     setup_directories()
     
-    # Validate target if utilities are available and target is provided
-    if banner_available and args.target:
-        target_info = validate_target(args.target)
-        if not target_info['valid']:
-            print(f"[ERROR] Invalid target: {args.target}")
-            for warning in target_info['warnings']:
-                print(f"[WARNING] {warning}")
-            return 1
-        
-        if target_info['warnings']:
-            for warning in target_info['warnings']:
-                print(f"[WARNING] {warning}")
-        
-        print(f"[+] Target validated: {target_info['normalized']} ({target_info['type']})")
-    
-    # Only show target info if target is provided
-    if args.target:
-        print(f"[+] ReconAI v0.1.0")
-        print(f"[+] Target: {args.target}")
-        print(f"[+] Tool: {args.tool}")
-        print(f"[+] AI Analysis: {'Enabled' if args.analyze else 'Disabled'}")
-        print(f"[+] Output Directory: {args.output_dir}")
-        
-        if args.verbose:
-            print(f"[DEBUG] Verbose mode enabled")
-    
-    # Import and initialize configuration and logging
-    from cli.core.config import Config
-    from cli.core.logging_setup import setup_logging
-    from cli.core.orchestrator import ReconOrchestrator
-    
     try:
-        # Initialize configuration
-        config = Config()
-        
-        # Handle config-related commands first
-        if args.create_config:
-            config_file = config.create_example_config()
-            if config_file:
-                print(f"[+] Created example configuration file: {config_file}")
-                print("[!] Edit the file and copy to config.yaml to activate")
-            return 0
-        
+        # Handle utility commands first
         if args.health:
             from cli.utils.project_status import check_project_health, print_health_status
             health_results = check_project_health()
@@ -158,117 +123,91 @@ Examples:
             return 0 if health_results['overall_status'] != 'critical' else 1
         
         if args.config:
-            print("[+] Configuration Status:")
+            from cli.core.config import Config
+            config = Config()
             validation = config.validate()
-            
+            print("[+] ReconGPT Configuration Status:")
             print(f"Valid: {'✓' if validation['valid'] else '✗'}")
             print(f"OpenAI API Key: {'✓' if config.get_openai_api_key() else '✗'}")
-            print(f"Output Directory: {config.get_output_dir()}")
-            print(f"Log Level: {config.get_log_level()}")
-            
-            if validation['warnings']:
-                print("\nWarnings:")
-                for warning in validation['warnings']:
-                    print(f"  ⚠ {warning}")
-            
-            if validation['errors']:
-                print("\nErrors:")
-                for error in validation['errors']:
-                    print(f"  ✗ {error}")
-            
-            return 0 if validation['valid'] else 1
+            return 0
         
-        # Setup logging with config
+        # Check if target is provided
+        if not args.target:
+            print("[ERROR] No target specified. Use -t <target> or --help for usage.")
+            return 1
+        
+        # Validate target
+        if banner_available:
+            target_info = validate_target(args.target)
+            if not target_info['valid']:
+                print(f"[ERROR] Invalid target: {args.target}")
+                return 1
+            print(f"[+] Target validated: {target_info['normalized']} ({target_info['type']})")
+        
+        # Initialize and run reconnaissance
+        from cli.core.config import Config
+        from cli.core.logging_setup import setup_logging
+        from cli.core.orchestrator import ReconOrchestrator
+        
+        config = Config()
         setup_logging(
             log_level=config.get_log_level(),
-            log_file='reconai.log' if args.verbose else None,
+            log_file='recongpt.log' if args.verbose else None,
             verbose=args.verbose
         )
         
-        # Only initialize orchestrator if we're going to run a scan
-        if args.target:
-            # Initialize orchestrator with config
-            orchestrator = ReconOrchestrator(
-                output_dir=args.output_dir,
-                verbose=args.verbose,
-                config=config
-            )
+        orchestrator = ReconOrchestrator(
+            output_dir=args.output_dir,
+            verbose=args.verbose,
+            config=config
+        )
         
-        # Only run reconnaissance if target is provided
-        if not args.target:
-            print("[ERROR] No target specified for reconnaissance")
-            print("Use --help for usage information")
-            return 1
-        
-        # Import results formatter
-        from cli.core.results_formatter import ResultsFormatter
+        print(f"[+] Processing target: {args.target}")
+        print(f"[+] Style: {args.style}")
+        print(f"[+] Tool: {args.tool}")
+        print(f"[+] AI Analysis: {'Enabled' if args.analyze else 'Disabled'}")
+        print(f"[+] Custom Dorks: {'Enabled' if args.dorks else 'Disabled'}")
         
         # Run reconnaissance
         results = orchestrator.run_reconnaissance(
             target=args.target,
             tool=args.tool,
-            analyze=args.analyze
+            analyze=args.analyze,
+            style=args.style,
+            generate_dorks=args.dorks
         )
         
-        # Format and save results
+        # Generate and display summary
+        summary = orchestrator.generate_summary_report(results)
+        print(summary)
+        
+        # Save results in requested format
+        from cli.core.results_formatter import ResultsFormatter
         formatter = ResultsFormatter(output_dir=args.output_dir)
         
-        # Generate outputs based on format selection
-        output_files = []
-        
         if args.format == 'all':
-            # Generate all formats
-            output_files.append(formatter.save_text_report(results))
-            output_files.append(formatter.save_json_report(results))
-            output_files.append(formatter.save_html_report(results))
-            output_files.append(formatter.save_csv_summary(results))
-        elif args.format == 'text':
-            output_files.append(formatter.save_text_report(results))
+            formatter.save_text_report(results)
+            formatter.save_json_report(results)
+            formatter.save_html_report(results)
         elif args.format == 'json':
-            output_files.append(formatter.save_json_report(results))
+            formatter.save_json_report(results)
         elif args.format == 'html':
-            output_files.append(formatter.save_html_report(results))
-        elif args.format == 'csv':
-            output_files.append(formatter.save_csv_summary(results))
-        
-        # Display summary
-        if args.format in ['text', 'all']:
-            # Show text summary on console
-            summary = formatter.format_text_report(results)
-            print(summary)
+            formatter.save_html_report(results)
         else:
-            # Show brief summary for other formats
-            summary = orchestrator.generate_summary_report(results)
-            print(summary)
+            formatter.save_text_report(results)
         
-        # Show output files
-        if output_files:
-            print(f"\n[+] Results saved to:")
-            for file_path in output_files:
-                print(f"    📄 {file_path}")
+        return 0 if results['success'] else 1
         
-        # Return appropriate exit code
-        if results['success']:
-            print(f"\n[+] Reconnaissance completed successfully!")
-            return 0
-        else:
-            print(f"\n[!] Reconnaissance failed: {results.get('error', 'Unknown error')}")
-            return 1
-            
-    except ImportError as e:
-        print(f"[ERROR] Failed to import modules: {e}")
-        print("[!] Make sure you're running from the project root directory")
-        return 1
     except Exception as e:
         print(f"[ERROR] Unexpected error: {e}")
+        if args.verbose:
+            import traceback
+            traceback.print_exc()
         return 1
 
 if __name__ == "__main__":
     try:
         sys.exit(main())
     except KeyboardInterrupt:
-        print("\n[!] Interrupted by user")
-        sys.exit(1)
-    except Exception as e:
-        print(f"[ERROR] {e}")
+        print("\n[!] Operation interrupted by user")
         sys.exit(1)
