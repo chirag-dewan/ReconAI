@@ -17,6 +17,13 @@ def setup_directories():
     print("[+] Project directories initialized")
 
 def main():
+    # Import utilities for banner and validation
+    try:
+        from cli.utils.helpers import print_banner, validate_target
+        banner_available = True
+    except ImportError:
+        banner_available = False
+    
     parser = argparse.ArgumentParser(
         description='ReconAI - Automated Reconnaissance with AI Analysis',
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -29,8 +36,9 @@ Examples:
     )
     
     parser.add_argument(
+        # Make target optional for config commands
         '-t', '--target',
-        required=True,
+        required=not any(arg in sys.argv for arg in ['--config', '--create-config', '--version', '--help']),
         help='Target to scan (domain, IP, CIDR, or organization name)'
     )
     
@@ -60,6 +68,18 @@ Examples:
     )
     
     parser.add_argument(
+        '--config',
+        action='store_true',
+        help='Show configuration and validation status'
+    )
+    
+    parser.add_argument(
+        '--create-config',
+        action='store_true',
+        help='Create example configuration files'
+    )
+    
+    parser.add_argument(
         '--version',
         action='version',
         version='ReconAI v0.1.0'
@@ -67,8 +87,28 @@ Examples:
     
     args = parser.parse_args()
     
+    # Print banner if available
+    if banner_available and not args.verbose:
+        print_banner()
+        print()
+    
     # Setup project structure
     setup_directories()
+    
+    # Validate target if utilities are available
+    if banner_available:
+        target_info = validate_target(args.target)
+        if not target_info['valid']:
+            print(f"[ERROR] Invalid target: {args.target}")
+            for warning in target_info['warnings']:
+                print(f"[WARNING] {warning}")
+            return 1
+        
+        if target_info['warnings']:
+            for warning in target_info['warnings']:
+                print(f"[WARNING] {warning}")
+        
+        print(f"[+] Target validated: {target_info['normalized']} ({target_info['type']})")
     
     print(f"[+] ReconAI v0.1.0")
     print(f"[+] Target: {args.target}")
@@ -79,11 +119,84 @@ Examples:
     if args.verbose:
         print(f"[DEBUG] Verbose mode enabled")
     
-    # TODO: Implement tool execution
-    print("[!] Tool execution not yet implemented")
-    print("[!] This is the initial CLI structure")
+    # Import and initialize configuration and logging
+    from cli.core.config import Config
+    from cli.core.logging_setup import setup_logging
+    from cli.core.orchestrator import ReconOrchestrator
     
-    return 0
+    try:
+        # Initialize configuration
+        config = Config()
+        
+        # Handle config-related commands first
+        if args.create_config:
+            config_file = config.create_example_config()
+            if config_file:
+                print(f"[+] Created example configuration file: {config_file}")
+                print("[!] Edit the file and copy to config.yaml to activate")
+            return 0
+        
+        if args.config:
+            print("[+] Configuration Status:")
+            validation = config.validate()
+            
+            print(f"Valid: {'✓' if validation['valid'] else '✗'}")
+            print(f"OpenAI API Key: {'✓' if config.get_openai_api_key() else '✗'}")
+            print(f"Output Directory: {config.get_output_dir()}")
+            print(f"Log Level: {config.get_log_level()}")
+            
+            if validation['warnings']:
+                print("\nWarnings:")
+                for warning in validation['warnings']:
+                    print(f"  ⚠ {warning}")
+            
+            if validation['errors']:
+                print("\nErrors:")
+                for error in validation['errors']:
+                    print(f"  ✗ {error}")
+            
+            return 0 if validation['valid'] else 1
+        
+        # Setup logging with config
+        setup_logging(
+            log_level=config.get_log_level(),
+            log_file='reconai.log' if args.verbose else None,
+            verbose=args.verbose
+        )
+        
+        # Initialize orchestrator with config
+        orchestrator = ReconOrchestrator(
+            output_dir=args.output_dir,
+            verbose=args.verbose,
+            config=config
+        )
+        
+        # Run reconnaissance
+        results = orchestrator.run_reconnaissance(
+            target=args.target,
+            tool=args.tool,
+            analyze=args.analyze
+        )
+        
+        # Generate and display summary
+        summary = orchestrator.generate_summary_report(results)
+        print(summary)
+        
+        # Return appropriate exit code
+        if results['success']:
+            print(f"[+] Reconnaissance completed successfully!")
+            return 0
+        else:
+            print(f"[!] Reconnaissance failed: {results.get('error', 'Unknown error')}")
+            return 1
+            
+    except ImportError as e:
+        print(f"[ERROR] Failed to import modules: {e}")
+        print("[!] Make sure you're running from the project root directory")
+        return 1
+    except Exception as e:
+        print(f"[ERROR] Unexpected error: {e}")
+        return 1
 
 if __name__ == "__main__":
     try:

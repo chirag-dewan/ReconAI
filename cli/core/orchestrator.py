@@ -7,7 +7,6 @@ import json
 import time
 from pathlib import Path
 from typing import Dict, List, Optional
-import logging
 
 # Import our custom modules
 import sys
@@ -16,39 +15,51 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from tools.bbot_wrapper import BbotWrapper
 from ai.analyzer import AIAnalyzer
+from core.config import Config
+from core.logging_setup import StatusLogger, ProgressLogger
 
 class ReconOrchestrator:
-    def __init__(self, output_dir: str = "output", verbose: bool = False):
-        self.output_dir = Path(output_dir)
+    def __init__(self, output_dir: str = None, verbose: bool = False, config: Config = None):
+        # Initialize configuration
+        self.config = config or Config()
+        
+        # Use config for output directory if not specified
+        self.output_dir = Path(output_dir or self.config.get_output_dir())
         self.verbose = verbose
-        self.logger = self._setup_logger()
         
-        # Initialize tool wrappers
-        self.bbot = BbotWrapper(output_dir=output_dir, verbose=verbose)
+        # Setup loggers
+        self.logger = StatusLogger('orchestrator')
+        self.progress = ProgressLogger('orchestrator', 10)  # Default 10 steps
         
-        # Initialize AI analyzer (will be None if no API key)
+        # Initialize tool wrappers with config
+        bbot_config = self.config.get_tool_config('bbot')
+        self.bbot = BbotWrapper(
+            output_dir=str(self.output_dir), 
+            verbose=verbose,
+            timeout=bbot_config.get('timeout', 300)
+        )
+        
+        # Initialize AI analyzer with config
         try:
-            self.ai_analyzer = AIAnalyzer(verbose=verbose)
+            ai_config = self.config.get('ai', {})
+            self.ai_analyzer = AIAnalyzer(
+                api_key=self.config.get_openai_api_key(),
+                model=ai_config.get('model', 'gpt-4'),
+                verbose=verbose
+            )
         except ValueError as e:
             self.logger.warning(f"AI analyzer not available: {e}")
             self.ai_analyzer = None
         
         # Ensure output directory exists
         self.output_dir.mkdir(exist_ok=True)
-    
-    def _setup_logger(self) -> logging.Logger:
-        """Setup logging for the orchestrator"""
-        logger = logging.getLogger('orchestrator')
-        if not logger.handlers:
-            handler = logging.StreamHandler()
-            formatter = logging.Formatter(
-                '[%(levelname)s] %(name)s: %(message)s'
-            )
-            handler.setFormatter(formatter)
-            logger.addHandler(handler)
         
-        logger.setLevel(logging.DEBUG if self.verbose else logging.INFO)
-        return logger
+        # Log initialization
+        self.logger.info(f"Orchestrator initialized with output dir: {self.output_dir}")
+        if self.ai_analyzer:
+            self.logger.info("AI analysis enabled")
+        else:
+            self.logger.warning("AI analysis disabled")
     
     def run_reconnaissance(self, target: str, tool: str = "bbot", analyze: bool = False) -> Dict:
         """
@@ -67,6 +78,21 @@ class ReconOrchestrator:
         self.logger.info(f"Starting reconnaissance for target: {target}")
         self.logger.info(f"Tool: {tool}, AI Analysis: {analyze}")
         
+        # Check if AI analysis is requested but not available
+        if analyze and not self.ai_analyzer:
+            self.logger.warning("AI analysis requested but not available")
+            analyze = False
+        
+        # Check if tool is enabled
+        if tool != "all" and not self.config.is_tool_enabled(tool):
+            self.logger.warning(f"Tool {tool} is disabled in configuration")
+        
+        # Setup progress tracking
+        total_steps = 1  # Scanning
+        if analyze:
+            total_steps += 1  # AI analysis
+        self.progress = ProgressLogger('orchestrator', total_steps)
+        
         # Initialize results structure
         results = {
             'target': target,
@@ -75,7 +101,11 @@ class ReconOrchestrator:
             'scan_results': {},
             'ai_analysis': None,
             'execution_time': 0,
-            'success': False
+            'success': False,
+            'config_used': {
+                'ai_model': self.config.get('ai', 'model', 'N/A'),
+                'tool_configs': self.config.get('tools', {})
+            }
         }
         
         try:
