@@ -77,10 +77,6 @@ class BbotWrapper:
         if not scan_name:
             scan_name = f"bbot_scan_{target.replace('/', '_').replace(':', '_')}"
         
-        # Output file paths
-        json_output = self.output_dir / f"{scan_name}.json"
-        txt_output = self.output_dir / f"{scan_name}.txt"
-        
         self.logger.info(f"Starting Bbot scan for target: {target}")
         
         # Build Bbot command
@@ -89,9 +85,9 @@ class BbotWrapper:
             '-t', target,
             '-o', str(self.output_dir),
             '-n', scan_name,
-            '--output-modules', 'json,human',
-            '-f', 'subdomain-enum',  # Default flag set
-        ]
+            '--output-modules', 'json,subdomains',  # FIXED
+            '-f', 'subdomain-enum',
+]
         
         if self.verbose:
             cmd.append('-v')
@@ -118,18 +114,14 @@ class BbotWrapper:
             
             self.logger.info("Bbot scan completed successfully")
             
-            # Parse JSON output
-            scan_results = self._parse_json_output(json_output)
+            # Parse output - Bbot creates a directory with the scan name
+            scan_results = self._parse_bbot_output(scan_name)
             
             return {
                 'success': True,
                 'target': target,
                 'scan_name': scan_name,
                 'results': scan_results,
-                'output_files': {
-                    'json': str(json_output),
-                    'txt': str(txt_output)
-                },
                 'command': ' '.join(cmd)
             }
             
@@ -150,44 +142,157 @@ class BbotWrapper:
                 'scan_name': scan_name
             }
     
-    def _parse_json_output(self, json_file: Path) -> Dict:
-        """Parse Bbot JSON output file"""
-        if not json_file.exists():
-            self.logger.warning(f"JSON output file not found: {json_file}")
-            return {'events': [], 'summary': 'JSON output file not found'}
+    def _parse_bbot_output(self, scan_name: str) -> Dict:
+        """Parse Bbot output files"""
+        scan_dir = self.output_dir / scan_name
         
+        # Debug: Show what files were actually created
+        if self.output_dir.exists():
+            all_files = list(self.output_dir.glob("*"))
+            self.logger.debug(f"Files in output directory: {[f.name for f in all_files]}")
+        
+        if scan_dir.exists():
+            scan_files = list(scan_dir.glob("*"))
+            self.logger.debug(f"Files in scan directory {scan_name}: {[f.name for f in scan_files]}")
+        
+        # Look for JSON output in multiple possible locations
+        possible_json_files = [
+            scan_dir / "output.json",
+            scan_dir / "output.ndjson", 
+            scan_dir / f"{scan_name}.json",
+            self.output_dir / f"{scan_name}.json",
+            scan_dir / "events.json"
+        ]
+        
+        # Find any JSON files
+        json_files = []
+        for possible_file in possible_json_files:
+            if possible_file.exists():
+                json_files.append(possible_file)
+                break
+        
+        # If no specific files found, look for any JSON files
+        if not json_files:
+            if scan_dir.exists():
+                json_files = list(scan_dir.glob("*.json")) + list(scan_dir.glob("*.ndjson"))
+            if not json_files:
+                json_files = list(self.output_dir.glob(f"*{scan_name}*.json"))
+        
+        if json_files:
+            self.logger.info(f"Found JSON output: {json_files[0]}")
+            return self._parse_json_file(json_files[0])
+        else:
+            self.logger.warning("No JSON output files found")
+            
+            # Try to get some basic info from text files
+            possible_txt_files = [
+                scan_dir / "output.txt",
+                scan_dir / f"{scan_name}.txt", 
+                self.output_dir / f"{scan_name}.txt"
+            ]
+            
+            for txt_file in possible_txt_files:
+                if txt_file.exists():
+                    self.logger.info(f"Found text output: {txt_file}")
+                    return self._parse_text_file(txt_file)
+            
+            return {
+                'events': [],
+                'total_events': 0,
+                'event_types': {},
+                'summary': 'No output files found, but scan completed'
+            }
+    
+    def _parse_json_file(self, json_file: Path) -> Dict:
+        """Parse Bbot JSON output file"""
         try:
             events = []
+            
+            # Bbot can output either regular JSON or NDJSON (newline-delimited JSON)
             with open(json_file, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line:
-                        try:
-                            event = json.loads(line)
-                            events.append(event)
-                        except json.JSONDecodeError:
-                            continue
+                content = f.read().strip()
+                
+                if not content:
+                    self.logger.warning(f"JSON file is empty: {json_file}")
+                    return {'events': [], 'total_events': 0, 'event_types': {}, 'summary': 'Empty JSON file'}
+                
+                # Try to parse as regular JSON first
+                try:
+                    data = json.loads(content)
+                    if isinstance(data, list):
+                        events = data
+                    elif isinstance(data, dict):
+                        # Single event or wrapped format
+                        events = [data] if 'type' in data else data.get('events', [data])
+                except json.JSONDecodeError:
+                    # Try parsing as NDJSON (line by line)
+                    for line in content.split('\n'):
+                        line = line.strip()
+                        if line:
+                            try:
+                                event = json.loads(line)
+                                events.append(event)
+                            except json.JSONDecodeError:
+                                continue
             
             self.logger.info(f"Parsed {len(events)} events from Bbot output")
             
             # Create summary
             event_types = {}
+            valid_events = []
+            
             for event in events:
-                event_type = event.get('type', 'unknown')
-                event_types[event_type] = event_types.get(event_type, 0) + 1
+                if isinstance(event, dict):
+                    event_type = event.get('type', 'unknown')
+                    event_types[event_type] = event_types.get(event_type, 0) + 1
+                    valid_events.append(event)
             
             return {
-                'events': events,
-                'total_events': len(events),
+                'events': valid_events,
+                'total_events': len(valid_events),
                 'event_types': event_types,
-                'summary': f"Found {len(events)} total events across {len(event_types)} different types"
+                'summary': f"Found {len(valid_events)} total events across {len(event_types)} different types"
             }
             
         except Exception as e:
             self.logger.error(f"Error parsing JSON output: {e}")
             return {
                 'events': [],
+                'total_events': 0,
+                'event_types': {},
                 'error': f"Failed to parse JSON output: {str(e)}"
+            }
+    
+    def _parse_text_file(self, txt_file: Path) -> Dict:
+        """Parse Bbot text output as fallback"""
+        try:
+            with open(txt_file, 'r') as f:
+                content = f.read()
+            
+            # Simple parsing - count lines that look like findings
+            lines = content.split('\n')
+            findings = []
+            
+            for line in lines:
+                line = line.strip()
+                if line and not line.startswith('[') and not line.startswith('#'):
+                    # This looks like a finding
+                    findings.append({'type': 'text_finding', 'data': line})
+            
+            return {
+                'events': findings,
+                'total_events': len(findings),
+                'event_types': {'text_finding': len(findings)},
+                'summary': f"Parsed {len(findings)} findings from text output"
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error parsing text output: {e}")
+            return {
+                'events': [],
+                'total_events': 0,
+                'event_types': {},
+                'summary': 'Failed to parse text output'
             }
     
     def get_findings_summary(self, scan_results: Dict) -> str:

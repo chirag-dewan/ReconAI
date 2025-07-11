@@ -32,16 +32,14 @@ class ReconOrchestrator:
         self.progress = ProgressLogger('orchestrator', 10)  # Default 10 steps
         
         # Initialize tool wrappers with config
-        bbot_config = self.config.get_tool_config('bbot')
         self.bbot = BbotWrapper(
             output_dir=str(self.output_dir), 
-            verbose=verbose,
-            timeout=bbot_config.get('timeout', 300)
+            verbose=verbose
         )
         
         # Initialize AI analyzer with config
         try:
-            ai_config = self.config.get('ai', {})
+            ai_config = self.config.get('ai') or {}
             self.ai_analyzer = AIAnalyzer(
                 api_key=self.config.get_openai_api_key(),
                 model=ai_config.get('model', 'gpt-4'),
@@ -83,16 +81,6 @@ class ReconOrchestrator:
             self.logger.warning("AI analysis requested but not available")
             analyze = False
         
-        # Check if tool is enabled
-        if tool != "all" and not self.config.is_tool_enabled(tool):
-            self.logger.warning(f"Tool {tool} is disabled in configuration")
-        
-        # Setup progress tracking
-        total_steps = 1  # Scanning
-        if analyze:
-            total_steps += 1  # AI analysis
-        self.progress = ProgressLogger('orchestrator', total_steps)
-        
         # Initialize results structure
         results = {
             'target': target,
@@ -103,8 +91,8 @@ class ReconOrchestrator:
             'execution_time': 0,
             'success': False,
             'config_used': {
-                'ai_model': self.config.get('ai', 'model', 'N/A'),
-                'tool_configs': self.config.get('tools', {})
+                'ai_model': self.config.get('ai', 'model') or 'N/A',
+                'tool_configs': self.config.get('tools') or {}
             }
         }
         
@@ -263,17 +251,18 @@ Timestamp: {results['timestamp']}
                 report += self.bbot.get_findings_summary(scan_results)
             elif tool == 'all':
                 report += "Multi-tool scan results:\n"
-                for tool_name, tool_results in scan_results.get('results', {}).items():
-                    status = "✓" if tool_results.get('success') else "✗"
+                tool_results = scan_results.get('results', {})
+                for tool_name, tool_data in tool_results.items():
+                    status = "✓" if tool_data.get('success') else "✗"
                     report += f"  {status} {tool_name}: "
-                    if tool_results.get('success'):
+                    if tool_data.get('success'):
                         if tool_name == 'bbot':
-                            summary = tool_results.get('results', {}).get('summary', 'No summary')
+                            summary = tool_data.get('results', {}).get('summary', 'No summary')
                             report += summary
                         else:
                             report += "Completed"
                     else:
-                        report += tool_results.get('error', 'Failed')
+                        report += tool_data.get('error', 'Failed')
                     report += "\n"
         else:
             report += f"Scan failed: {scan_results.get('error', 'Unknown error')}\n"
@@ -282,7 +271,8 @@ Timestamp: {results['timestamp']}
         ai_analysis = results.get('ai_analysis')
         if ai_analysis and ai_analysis.get('success'):
             report += "\n=== AI Analysis ===\n"
-            report += self.ai_analyzer.generate_report(ai_analysis)
+            if hasattr(self, 'ai_analyzer') and self.ai_analyzer:
+                report += self.ai_analyzer.generate_report(ai_analysis)
         elif ai_analysis and not ai_analysis.get('success'):
             report += f"\nAI Analysis failed: {ai_analysis.get('error')}\n"
         

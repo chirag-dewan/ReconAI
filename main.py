@@ -38,7 +38,7 @@ Examples:
     parser.add_argument(
         # Make target optional for config commands
         '-t', '--target',
-        required=not any(arg in sys.argv for arg in ['--config', '--create-config', '--version', '--help']),
+        required=not any(arg in sys.argv for arg in ['--config', '--create-config', '--health', '--version', '--help']),
         help='Target to scan (domain, IP, CIDR, or organization name)'
     )
     
@@ -62,6 +62,13 @@ Examples:
     )
     
     parser.add_argument(
+        '--format',
+        choices=['text', 'json', 'html', 'csv', 'all'],
+        default='text',
+        help='Output format for results (default: text)'
+    )
+    
+    parser.add_argument(
         '--verbose', '-v',
         action='store_true',
         help='Enable verbose output'
@@ -71,6 +78,12 @@ Examples:
         '--config',
         action='store_true',
         help='Show configuration and validation status'
+    )
+    
+    parser.add_argument(
+        '--health',
+        action='store_true',
+        help='Run comprehensive health check of the installation'
     )
     
     parser.add_argument(
@@ -95,8 +108,8 @@ Examples:
     # Setup project structure
     setup_directories()
     
-    # Validate target if utilities are available
-    if banner_available:
+    # Validate target if utilities are available and target is provided
+    if banner_available and args.target:
         target_info = validate_target(args.target)
         if not target_info['valid']:
             print(f"[ERROR] Invalid target: {args.target}")
@@ -110,14 +123,16 @@ Examples:
         
         print(f"[+] Target validated: {target_info['normalized']} ({target_info['type']})")
     
-    print(f"[+] ReconAI v0.1.0")
-    print(f"[+] Target: {args.target}")
-    print(f"[+] Tool: {args.tool}")
-    print(f"[+] AI Analysis: {'Enabled' if args.analyze else 'Disabled'}")
-    print(f"[+] Output Directory: {args.output_dir}")
-    
-    if args.verbose:
-        print(f"[DEBUG] Verbose mode enabled")
+    # Only show target info if target is provided
+    if args.target:
+        print(f"[+] ReconAI v0.1.0")
+        print(f"[+] Target: {args.target}")
+        print(f"[+] Tool: {args.tool}")
+        print(f"[+] AI Analysis: {'Enabled' if args.analyze else 'Disabled'}")
+        print(f"[+] Output Directory: {args.output_dir}")
+        
+        if args.verbose:
+            print(f"[DEBUG] Verbose mode enabled")
     
     # Import and initialize configuration and logging
     from cli.core.config import Config
@@ -135,6 +150,12 @@ Examples:
                 print(f"[+] Created example configuration file: {config_file}")
                 print("[!] Edit the file and copy to config.yaml to activate")
             return 0
+        
+        if args.health:
+            from cli.utils.project_status import check_project_health, print_health_status
+            health_results = check_project_health()
+            print_health_status(health_results)
+            return 0 if health_results['overall_status'] != 'critical' else 1
         
         if args.config:
             print("[+] Configuration Status:")
@@ -164,12 +185,23 @@ Examples:
             verbose=args.verbose
         )
         
-        # Initialize orchestrator with config
-        orchestrator = ReconOrchestrator(
-            output_dir=args.output_dir,
-            verbose=args.verbose,
-            config=config
-        )
+        # Only initialize orchestrator if we're going to run a scan
+        if args.target:
+            # Initialize orchestrator with config
+            orchestrator = ReconOrchestrator(
+                output_dir=args.output_dir,
+                verbose=args.verbose,
+                config=config
+            )
+        
+        # Only run reconnaissance if target is provided
+        if not args.target:
+            print("[ERROR] No target specified for reconnaissance")
+            print("Use --help for usage information")
+            return 1
+        
+        # Import results formatter
+        from cli.core.results_formatter import ResultsFormatter
         
         # Run reconnaissance
         results = orchestrator.run_reconnaissance(
@@ -178,16 +210,49 @@ Examples:
             analyze=args.analyze
         )
         
-        # Generate and display summary
-        summary = orchestrator.generate_summary_report(results)
-        print(summary)
+        # Format and save results
+        formatter = ResultsFormatter(output_dir=args.output_dir)
+        
+        # Generate outputs based on format selection
+        output_files = []
+        
+        if args.format == 'all':
+            # Generate all formats
+            output_files.append(formatter.save_text_report(results))
+            output_files.append(formatter.save_json_report(results))
+            output_files.append(formatter.save_html_report(results))
+            output_files.append(formatter.save_csv_summary(results))
+        elif args.format == 'text':
+            output_files.append(formatter.save_text_report(results))
+        elif args.format == 'json':
+            output_files.append(formatter.save_json_report(results))
+        elif args.format == 'html':
+            output_files.append(formatter.save_html_report(results))
+        elif args.format == 'csv':
+            output_files.append(formatter.save_csv_summary(results))
+        
+        # Display summary
+        if args.format in ['text', 'all']:
+            # Show text summary on console
+            summary = formatter.format_text_report(results)
+            print(summary)
+        else:
+            # Show brief summary for other formats
+            summary = orchestrator.generate_summary_report(results)
+            print(summary)
+        
+        # Show output files
+        if output_files:
+            print(f"\n[+] Results saved to:")
+            for file_path in output_files:
+                print(f"    📄 {file_path}")
         
         # Return appropriate exit code
         if results['success']:
-            print(f"[+] Reconnaissance completed successfully!")
+            print(f"\n[+] Reconnaissance completed successfully!")
             return 0
         else:
-            print(f"[!] Reconnaissance failed: {results.get('error', 'Unknown error')}")
+            print(f"\n[!] Reconnaissance failed: {results.get('error', 'Unknown error')}")
             return 1
             
     except ImportError as e:

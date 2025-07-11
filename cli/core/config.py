@@ -133,7 +133,7 @@ class Config:
             Configuration value
         """
         if key is None:
-            return self.config.get(section, default)
+            return self.config.get(section, default or {})
         
         section_config = self.config.get(section, {})
         return section_config.get(key, default)
@@ -175,11 +175,16 @@ class Config:
     
     def is_tool_enabled(self, tool_name: str) -> bool:
         """Check if a tool is enabled"""
-        return self.get('tools', {}).get(tool_name, {}).get('enabled', False)
+        tools_config = self.config.get('tools', {})
+        if not isinstance(tools_config, dict):
+            return False
+        tool_config = tools_config.get(tool_name, {})
+        return tool_config.get('enabled', False)
     
     def get_tool_config(self, tool_name: str) -> Dict[str, Any]:
         """Get configuration for a specific tool"""
-        return self.get('tools', {}).get(tool_name, {})
+        tools = self.config.get('tools', {})
+        return tools.get(tool_name, {})
     
     def create_example_config(self):
         """Create an example configuration file"""
@@ -252,21 +257,24 @@ class Config:
                 results['valid'] = False
         
         # Validate tool configurations
-        for tool_name, tool_config in self.get('tools', {}).items():
-            if tool_config.get('enabled'):
-                timeout = tool_config.get('timeout', 300)
-                if timeout <= 0:
-                    results['errors'].append(f"Invalid timeout for {tool_name}: {timeout}")
-                    results['valid'] = False
+        tools_config = self.config.get('tools', {})
+        if isinstance(tools_config, dict):
+            for tool_name, tool_config in tools_config.items():
+                if isinstance(tool_config, dict) and tool_config.get('enabled'):
+                    timeout = tool_config.get('timeout', 300)
+                    if timeout <= 0:
+                        results['errors'].append(f"Invalid timeout for {tool_name}: {timeout}")
+                        results['valid'] = False
         
         # Validate AI configuration
         ai_config = self.get('ai', {})
-        temperature = ai_config.get('temperature', 0.3)
-        if not 0 <= temperature <= 2:
-            results['warnings'].append(f"AI temperature {temperature} outside recommended range (0-2)")
-        
-        max_tokens = ai_config.get('max_tokens', 2000)
-        if max_tokens <= 0 or max_tokens > 4000:
-            results['warnings'].append(f"AI max_tokens {max_tokens} outside reasonable range")
+        if isinstance(ai_config, dict):
+            temperature = ai_config.get('temperature', 0.3)
+            if not 0 <= temperature <= 2:
+                results['warnings'].append(f"AI temperature {temperature} outside recommended range (0-2)")
+            
+            max_tokens = ai_config.get('max_tokens', 2000)
+            if max_tokens <= 0 or max_tokens > 4000:
+                results['warnings'].append(f"AI max_tokens {max_tokens} outside reasonable range")
         
         return results
